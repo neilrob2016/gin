@@ -1,0 +1,7 @@
+20250924
+--------
+Initial version
+
+20250925
+--------
+- Fixed memory a leak - there was a missing free().

@@ -38,6 +38,7 @@ void pcolprintf(int player, const char *fmt, ...)
 		player_name[flags.self_play][player],
 		text);
 	va_end(args);
+	free(text);
 }
 
 

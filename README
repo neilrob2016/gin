@@ -1,0 +1,35 @@
+Compilation
+===========
+This is a small Gin Rummy game I wrote to kill time. Its been compiled and 
+tested on Linux and MacOS but should compile on most unix systems as it just 
+uses standard libc calls. The only difference with MacOS is that it calls the 
+speech subsystem using exec to speak the moves. To compile simply type "make".
+
+
+Running
+=======
+Compilation creates a binary called "gin" which can be run with no options to
+start a user vs computer game. Enter -h on the command line to see the command
+line options. There will be extra options related to speech on MacOS.
+
+
+Colour
+======
+Buy default the game uses ANSI colour. Use the -c option to switch it off.
+
+
+Game
+====
+This game has a couple of minor differences to the official rules that don't
+affect the gameplay but made programming slightly simpler:
+
+1) You must meld down to or below the min knock value before you can knock. You 
+   cannot knock then meld.
+2) If the other player knocks you cannot meld with the next card on the deck top
+   without taking it into your hand first with an exchange. 
+
+For help with game commands enter 'h' and the command line.
+
+
+Have any suggestions? Email me: neilrob2016@gmail.com
+

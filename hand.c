@@ -4,13 +4,12 @@ void handsDeal(void)
 {
 	int i;
 
-	colprintf("~FYDealing hands...\n");
-	bzero(hands,sizeof(hands));
+	colprintf("~FYDealing hands...\n\n");
 	decktop = HAND_SIZE * 2;
 	for(i=0;i < HAND_SIZE;++i)
 	{
-		hands[USER][i] = deck[i];
-		hands[COMPUTER][i] = deck[i+HAND_SIZE];
+		ply[USER].hand[i] = deck[i];
+		ply[COMPUTER].hand[i] = deck[i+HAND_SIZE];
 	}
 }
 
@@ -27,16 +26,13 @@ void handPrint(t_card *hand, bool print_next)
 		if (i && !(i % NUM_TYPES)) putchar('\n');
 		colprintf("%s~BW~FT|",cardString(hand[i]));
 	}
-	colprintf("~RS value = ~FY%d~RS ",handGetValue(hand));
-	if (print_next)
-	{
-		if (decktop < max_decktop) 
-			colprintf(", next card = %s",cardString(deck[decktop]));
-		else 
-			printf(", no further cards.");
-	}
+	colprintf("~RS value: ~FY%d~RS",handGetValue(hand));
+	if (print_next && decktop < max_decktop) 
+		colprintf(", deck card: %s",cardString(deck[decktop]));
 	colprintf("\n~BW~FT -- -- -- -- -- -- -- -- -- -- \n\n");
 	SPEECH_ON();
+	if (print_next && decktop < max_decktop) 
+		sayprintf("deck card is %s",cardGetName(deck[decktop]));
 }
 
 

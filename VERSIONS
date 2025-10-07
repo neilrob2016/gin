@@ -1,7 +1,21 @@
-20250924
---------
+20250925
+========
 Initial version
 
-20250925
---------
-- Fixed memory a leak - there was a missing free().
+
+20251007
+========
+- Added user command 'U': Computer suggests the users next move
+- Added user command 'G': Toggle debug
+- Added user command 'O': Toggle Going Gin
+- Added command 'X': Restart match
+- Added debug command 'X': Print cards user has already seen
+- Added debug command 'Z': Print deck
+- User command 'I' changed to 'W'
+- Command line option -d changed to -g
+- Command line option -g changed to -o
+- Command line option -a changed to -d
+- Added command line option -a (win by number of games instead of points)
+- Bug fix in computerGetRunDoubleValue() 
+- Bug fix in computerMove()
+- Loads of other code updates

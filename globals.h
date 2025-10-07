@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define VERSION "20250925"
+#define VERSION "20251007"
 
 enum en_suits
 {
@@ -52,6 +52,7 @@ enum en_types
 
 enum en_algo
 {
+	NO_ALGO,
 	ALGO_MELD_SET_THEN_RUN,
 	ALGO_MELD_RUN_THEN_SET
 };
@@ -91,7 +92,7 @@ typedef struct
 	int algo;
 } t_handval;
 
-typedef struct
+struct st_flags
 {
 	// Command line
 	unsigned colour          : 1;
@@ -102,6 +103,7 @@ typedef struct
 	unsigned prompt          : 1;
 	unsigned layoff          : 1;
 	unsigned layoff_gin      : 1;
+	unsigned win_by_games    : 1;
 	unsigned debug           : 1;
 	unsigned version         : 1;
 
@@ -113,13 +115,28 @@ typedef struct
 	unsigned melded      : 1;
 	unsigned meld_asap   : 1;
 	unsigned store_melds : 1;
-} t_flags;
+	unsigned user_next   : 1;
+	unsigned suggest     : 1;
+};
+
+struct st_player
+{
+	t_card hand[HAND_SIZE];
+	t_card seencards[DECK_SIZE];
+	t_card meldsets[HAND_SIZE];
+	t_card meldruns[HAND_SIZE];
+	int meldsetscnt;
+	int meldrunscnt;
+	int seencnt;
+	int points;
+	int games;
+};
 
 // Globals
 #ifdef MAINFILE
 #define EXTERN 
 t_card invalid_card = { NO_SUIT, NO_TYPE };
-//                             - A,1,2,3,4,5,6,7,8,9, J, Q, K
+//                         - A,2,3,4,5,6,7,8,9,T, J, Q, K
 int typeval[NUM_TYPES] = { 0,1,2,3,4,5,6,7,8,9,10,10,10,10 };
 const char *player_name[2][NUM_PLAYERS] =
 {
@@ -135,15 +152,8 @@ extern int typeval[NUM_TYPES];
 extern const char *player_col;
 #endif
 
+EXTERN struct st_player ply[NUM_PLAYERS];
 EXTERN t_card deck[DECK_SIZE];
-EXTERN t_card hands[NUM_PLAYERS][HAND_SIZE];
-EXTERN t_card seencards[NUM_PLAYERS][DECK_SIZE];
-EXTERN t_card meldsets[NUM_PLAYERS][HAND_SIZE];
-EXTERN t_card meldruns[NUM_PLAYERS][HAND_SIZE];
-EXTERN int meldsetscnt[NUM_PLAYERS];
-EXTERN int meldrunscnt[NUM_PLAYERS];
-EXTERN int seencnt[NUM_PLAYERS];
-EXTERN int score[NUM_PLAYERS];
 EXTERN int decktop;
 EXTERN int max_decktop;
 EXTERN int knock_player;
@@ -152,7 +162,7 @@ EXTERN int play_delay_usec;
 EXTERN float double_adjust_mult;
 
 // Command line
-EXTERN t_flags flags;
+EXTERN struct st_flags flags;
 EXTERN int min_knock_val;
 EXTERN char *speech_rate;
 EXTERN char *voice;
@@ -176,27 +186,28 @@ void handCopy(t_card *from, t_card *to);
 
 // card.c
 char *cardString(t_card card);
-char *cardGetName(char c, char prev, int *len);
+char *cardGetName(t_card card);
+char *cardGetNameFromChars(char suit, char type, int *len);
 
 // player.c
 void playersInit(void);
 void playerGin(int player);
 void playerKnock(int player);
 void playerLayOff(int player);
-bool playerPushSeen(int player, t_card card);
-void playerPopSeen(int player);
+void playerAddSeen(int player, t_card card);
 int  playerHasSeenCard(int player, t_card card);
 int  playerHasSeenCardType(int player, int type);
 
 // user.c
 bool userFirst(void);
-void userMove(void);
+bool userMove(void);
 
 // computer.c
 void computerMove(int player);
 
 // printf.c
 void errprintf(const char *fmt, ...);
+void sugprintf(const char *fmt, ...);
 void pcolprintf(int player, const char *fmt, ...);
 void dbgprintf(int player, const char *fmt, ...);
 void colprintf(const char *fmt, ...);

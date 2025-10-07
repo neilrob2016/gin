@@ -1,7 +1,8 @@
 #define MAINFILE
 #include "globals.h"
 
-#define MATCH_WIN_VAL 100
+#define MATCH_WIN_POINTS 100
+#define MATCH_WIN_GAMES  10
 #define MIN_KNOCK_VAL 10
 #define DOUBLE_ADJUST_MULT 0.75
 
@@ -9,7 +10,7 @@ void parseCmdLine(int argc, char **argv);
 void version(void);
 void init(void);
 void mainloop(void);
-void endOfGame(void);
+void endOfGame(int game, int moves);
 void sighandler(int sig);
 
 int main(int argc, char **argv)
@@ -55,20 +56,23 @@ void parseCmdLine(int argc, char **argv)
 			flags.speech = 1;
 			continue;
 #endif
+		case 'a':
+			flags.win_by_games = 1;
+			continue;
 		case 'c':
 			flags.colour = 0;
-			continue;
-		case 'd':
-			flags.debug = 1;
 			continue;
 		case 'i':
 			flags.meld_asap = 1;
 			continue;
 		case 'g':
-			flags.layoff_gin = 0;
+			flags.debug = 1;
 			continue;
 		case 'l':
 			flags.layoff = 0;
+			continue;
+		case 'o':
+			flags.layoff_gin = 0;
 			continue;
 		case 'p':
 			flags.self_play = 1;
@@ -105,7 +109,7 @@ void parseCmdLine(int argc, char **argv)
 			flags.speech = 1;
 			break;
 #endif
-		case 'a':
+		case 'd':
 			double_adjust_mult = atof(argv[i]);
 			if (double_adjust_mult < 0 || double_adjust_mult > 1)
 			{
@@ -115,10 +119,10 @@ void parseCmdLine(int argc, char **argv)
 			break;
 		case 'k':
 			min_knock_val = atoi(argv[i]);
-			if (min_knock_val < 0 || min_knock_val >= MATCH_WIN_VAL)
+			if (min_knock_val < 0 || min_knock_val >= MATCH_WIN_POINTS)
 			{
 				errprintf("Invalid min knock value. Must be 0 to %d.\n",
-					MATCH_WIN_VAL-1);
+					MATCH_WIN_POINTS-1);
 				exit(1);
 			}
 			break;
@@ -151,17 +155,19 @@ void parseCmdLine(int argc, char **argv)
 	       "       -s         : Do speech.\n"
 	       "       -w         : Don't wait for speech to finish before continuing.\n"
 #endif
-	       "       -a <0-1>   : Double adjust multiplication value for when the computer\n"
+	       "       -d <0-1>   : Double adjust multiplication value for when the computer\n"
 	       "                    calculates potential hand values. Default = %.2f\n"
 	       "       -k <0-100> : Mininum knock value. Default = %d\n"
 	       "       -y <secs>  : Self play delay between moves. Default = %.1f\n"
+	       "       -a         : Match will be won by the first person to win 10 games\n"
+	       "                    instead of 100 points.\n"
 	       "       -c         : No colour.\n"
-	       "       -d         : Debug.\n"
+	       "       -g         : Debug.\n"
 	       "       -i         : Make the computer meld as soon as possible rather than\n"
 	       "                    waiting until it can knock. This will often prevent it\n"
 	       "                    having runs and sets longer than 3 cards.\n"
-	       "       -g         : Don't allow Going Gin after layoff.\n"
 	       "       -l         : Don't layoff cards against knockers melds at end.\n"
+	       "       -o         : Don't allow Going Gin after layoff.\n"
 	       "       -p         : Self play.\n"
 	       "       -t         : Don't prompt to continue after each self play game.\n"
 	       "       -v         : Show version then exit.\n"
@@ -198,7 +204,6 @@ void version(void)
 void init(void)
 {
 	srandom(time(0));
-	bzero(score,sizeof(score));
 	signal(SIGINT,sighandler);
 	signal(SIGQUIT,sighandler);
 	signal(SIGTERM,sighandler);
@@ -216,7 +221,11 @@ void mainloop(void)
 	int player;
 	int prev_decktop;
 	int first_player;
-	int self_play_start_player = USER;
+	int self_play_start_player;
+
+	RESTART:
+	bzero(ply,sizeof(ply));
+	self_play_start_player = USER;
 
 	for(int game=1;;++game)
 	{
@@ -262,9 +271,10 @@ void mainloop(void)
 
 			if (flags.self_play) computerMove(player);
 			else if (player == USER)
-				userMove();
-			else
-				computerMove(COMPUTER);
+			{
+				if (userMove()) goto RESTART;
+			}
+			else computerMove(COMPUTER);
 
 			// If neither user went for the next card then increment
 			// the decktop.
@@ -278,8 +288,8 @@ void mainloop(void)
 			if (knock_player != NO_PLY || decktop == max_decktop)
 			{
 				if (flags.end_of_game) break;
-				max_decktop = decktop;
 				flags.end_of_game = true;
+				max_decktop = decktop;
 
 				/* After a knock we do one more move to let
 				   the other player meld if possible. If the
@@ -292,9 +302,7 @@ void mainloop(void)
 			if (flags.self_play && play_delay_usec) 
 				usleep(play_delay_usec);
 		}
-		colprintf("\n~BM~FW---{ Game ~FG%d~FW complete in ~FY%d~FW moves }---\n\n",
-			game,moves);
-		endOfGame();
+		endOfGame(game,moves);
 
 		// Alternate which user starts each game
 		self_play_start_player = !self_play_start_player;
@@ -313,8 +321,8 @@ void mainloop(void)
 
 
 
-/*** Do layoffs, calculate scores and show winner ***/
-void endOfGame(void)
+/*** Do layoffs, calculate points and show winner ***/
+void endOfGame(int game, int moves)
 {
 	char *pname[2];
 	char col[2];
@@ -329,14 +337,14 @@ void endOfGame(void)
 		{
 			dbgprintf(i,"Melded set cards: ");
 			SPEECH_OFF();
-			for(j=0;j < meldsetscnt[i];++j)
-				colprintf("%s ",cardString(meldsets[i][j]));
+			for(j=0;j < ply[i].meldsetscnt;++j)
+				colprintf("%s ",cardString(ply[i].meldsets[j]));
 			putchar('\n');
 			SPEECH_ON();
 			dbgprintf(i,"Melded run cards: ");
 			SPEECH_OFF();
-			for(j=0;j < meldrunscnt[i];++j)
-				colprintf("%s ",cardString(meldruns[i][j]));
+			for(j=0;j < ply[i].meldrunscnt;++j)
+				colprintf("%s ",cardString(ply[i].meldruns[j]));
 			SPEECH_ON();
 			putchar('\n');
 		}
@@ -347,21 +355,25 @@ void endOfGame(void)
 
 	for(i=0;i < NUM_PLAYERS;++i)
 	{
-		val[i] = handGetValue(hands[i]);
+		val[i] = handGetValue(ply[i].hand);
 		pname[i] = (char *)player_name[flags.self_play][i];
 		col[i] = player_col[i];
 	}
 	if (!flags.self_play)
 	{
 		pcolprintf(COMPUTER,"'s final hand:\n");
-		handPrint(hands[COMPUTER],false);
+		handPrint(ply[COMPUTER].hand,false);
 	}
 
-	colprintf("~BY~FMFinal hand values:\n");
-	for(i=0;i < NUM_PLAYERS;++i)
-		colprintf("   ~F%c%-8s:~RS %d\n",col[i],pname[i],val[i]);
+	colprintf("~BM~FW--@{ Game ~FG%d~FW complete in ~FY%d~FW moves }@--\n\n",
+		game,moves);
 
-	// Hand with the lowest score wins, so if player 0 hand is > than 
+	colprintf("~BY~FM~ULPlayer    Hand value\n");
+	if (!flags.colour) puts("------    ----------");
+	for(i=0;i < NUM_PLAYERS;++i)
+		colprintf("~F%c%-8s~RS  %d\n",col[i],pname[i],val[i]);
+
+	// Hand with the lowest value wins, so if player 0 hand is > than 
 	// player 1 then winner is set to 1 and vice versa.
 	if (val[0] == val[1]) colprintf("\n~BR~FW*** Game drawn ***\n\n");
 	else
@@ -373,23 +385,27 @@ void endOfGame(void)
 		if (knock_player != NO_PLY && winner != knock_player)
 		{
 			if (flags.layoff_gin && !val[winner]) playerGin(winner);
-			colprintf("\n~BM~FW~LI***~B%c %s steals the win! ~BM***\n\n",
-				col[winner],pname[winner]);
+			colprintf("\n~BM~FW***~B%c ~LI%s steals the win!~RS~B%c ~FW~BM***\n\n",
+				col[winner],pname[winner],col[winner]);
 		}
 		else
 		{
 			if (!val[winner]) playerGin(winner);
-			colprintf("\n~B%c~FW*** %s wins the game! ***\n\n",
-				col[winner],pname[winner]);
+			colprintf("\n~B%c~FW*** ~LI%s wins the game!~RS~B%c~FW ***\n\n",
+				col[winner],pname[winner],col[winner]);
 		}
-		score[winner] += (val[!winner] - val[winner]);
-		if (gin_player != NO_PLY) score[winner] += GIN_ADD;
+		ply[winner].points += (val[!winner] - val[winner]);
+		++ply[winner].games;
+		if (gin_player != NO_PLY) ply[winner].points += GIN_ADD;
 	}
 
-	colprintf("~BM~FWCurrent scores:\n");
+	colprintf("~FYScores so far:\n\n");
+	colprintf("~BM~FW~ULPlayer    Games  Points\n");
+	if (!flags.colour) puts("------    -----  ------");
 	for(i=0;i < NUM_PLAYERS;++i)
 	{
-		colprintf("   ~F%c%-8s:~RS %d ",col[i],pname[i],score[i]);
+		colprintf("~F%c%-8s~RS  %-3d    %-3d ",
+			col[i],pname[i],ply[i].games,ply[i].points);
 		if (gin_player == i) 
 			colprintf("(~FY~LI+%d~RS for ~FRGoing Gin~RS)",GIN_ADD);
 		putchar('\n');
@@ -398,10 +414,20 @@ void endOfGame(void)
 	// First player to reach 100 wins the match
 	for(i=0;i < NUM_PLAYERS;++i)
 	{
-		if (score[i] >= MATCH_WIN_VAL)
+		if (flags.win_by_games && ply[i].games >= MATCH_WIN_GAMES)
 		{
-			colprintf("\n~BR~FW~LI<<<~B%c %s wins the match! ~BR>>>\n\n",
-				player_col[i],player_name[flags.self_play][i]);
+			colprintf("\n~BR~FW<<<~LI~B%c %s wins the match with %d games! ~RS~BR~FW>>>\n\n",
+				player_col[i],
+				player_name[flags.self_play][i],
+				ply[i].games);
+			exit(0);
+		}
+		if (!flags.win_by_games && ply[i].points >= MATCH_WIN_POINTS)
+		{
+			colprintf("\n~BR~FW<<<~LI~B%c %s wins the match with %d points! ~RS~BR~FW>>>\n\n",
+				player_col[i],
+				player_name[flags.self_play][i],
+				ply[i].points);
 			exit(0);
 		}
 	}
@@ -414,6 +440,6 @@ void endOfGame(void)
 void sighandler(int sig)
 {
 	SPEECH_OFF();
-	colprintf("\n\n~BR~FW~LI*** Exiting on signal %d ***\n\n",sig);
+	colprintf("\n\n~BR~FW*** ~LIExiting on signal %d ~RS~BR~FW***\n\n",sig);
 	exit(sig);
 }

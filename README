@@ -15,7 +15,7 @@ line options. There will be extra options related to speech on MacOS.
 
 Colour
 ======
-Buy default the game uses ANSI colour. Use the -c option to switch it off.
+By default the game uses ANSI colour. Use the -c option to switch it off.
 
 
 Game

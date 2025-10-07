@@ -18,6 +18,8 @@ int   computerGetValueIncDoubles(int player, t_card *hand);
 float computerGetRunDoubleValue(int player, t_card prev, t_card card, float val);
 float computerGetSetDoubleValue(int player, t_card prev, t_card card, float val);
 
+void computerSuggestMeld(int algo);
+
 /////////////////////////////// EXTERNAL FUNCS ///////////////////////////////
 
 
@@ -26,23 +28,46 @@ float computerGetSetDoubleValue(int player, t_card prev, t_card card, float val)
      player parameter for self play mode. ***/
 void computerMove(int player)
 {
-	t_card *phand = hands[player];
+	t_card *phand = ply[player].hand;
 
-	putchar('\n');
-	if (PRINT_INFO())
+	if (flags.suggest)
 	{
-		pcolprintf(player,"'s move. Current hand:\n");
-		handPrint(phand,true);
+		if (knock_player != NO_PLY)
+		{
+			computerSuggestMeld(NO_ALGO);
+			return;
+		}
 	}
-	else pcolprintf(player,"'s move...\n");
+	else
+	{
+		// mainloop shouldn't call us again f we've already knocked
+		assert(knock_player != player);
+		putchar('\n');
+		if (PRINT_INFO())
+		{
+			pcolprintf(player,"'s move. Current hand:\n");
+			handPrint(phand,true);
+		}
+		else pcolprintf(player,"'s move...\n");
+	}
 
 	// Get current hand value if we melded not adjusting for doubles
 	t_handval currhv = computerGetMinValue(player,phand,false); 
 	int currval = currhv.value;
+	if (flags.debug)
+	{
+		dbgprintf(player,"Current min hand value with algo %d: %d\n",
+			currhv.algo,currhv.value);
+	}
 
 	// See if we have a potential winning hand and can knock
 	if (knock_player == NO_PLY && currval <= min_knock_val)
 	{
+		if (flags.suggest)
+		{
+			computerSuggestMeld(currhv.algo);
+			return;
+		}
 		computerKnockAndMeld(player,currhv);
 		return;
 	}
@@ -50,8 +75,12 @@ void computerMove(int player)
 	// If no more cards do final meld
 	if (decktop == max_decktop)
 	{
-		pcolprintf(player," can't draw another card.\n");
-		computerEndOfMoveMeld(player,currhv.algo);
+		if (flags.suggest) computerSuggestMeld(NO_ALGO);
+		else
+		{
+			pcolprintf(player," can't draw another card.\n");
+			computerEndOfMoveMeld(player,currhv.algo);
+		}
 		return;
 	}
 
@@ -62,11 +91,10 @@ void computerMove(int player)
 	int minval;
 	int minpos;
 	bool exchanged = false;
-	bool pushed;
 
 	// Get value adjusted for doubles
 	currhv = computerGetMinValue(player,phand,true); 
-	dbgprintf(player,"Current min hand value with algo %d = %d\n",
+	dbgprintf(player,"Current min hand value with algo %d adjusted for doubles: %d\n",
 		currhv.algo,currhv.value);
 
 	/* Try the next cards in our hand and see if they improve it. Loop 
@@ -79,12 +107,11 @@ void computerMove(int player)
 
 		nextcard = deck[decktop];
 		if (PRINT_INFO()) 
-			pcolprintf(player,"'s next card~RS = %s\n",cardString(nextcard));
+			pcolprintf(player,"'s deck card: %s\n",cardString(nextcard));
 		minval = currhv.value;
 		minpos = -1;
 
-		// Add to seen list now for double valuation calcs
-		pushed = playerPushSeen(player,nextcard);
+		playerAddSeen(player,nextcard);
 		for(int j=0;j < HAND_SIZE;++j)
 		{
 			if (!VALID_CARD(phand[j])) continue; 
@@ -92,20 +119,23 @@ void computerMove(int player)
 			tmp = phand[j];
 			phand[j] = nextcard;
 			hv = computerGetMinValue(player,phand,true); 
+			dbgprintf(player,"Value after exchange at pos %d with algo %d: %d\n",j,hv.algo,hv.value);
 
 			/* Could use an array to store all the possible
 			   equivalent lowest value positions and pick one at 
 			   the end but too much hassle. Just use random() here 
-			   instead. */
+			   instead unless its a user suggestion (we want a 
+			   consistent response then) */
 			if (hv.value < minval || 
-			    (hv.value == minval && 
-			     minval < currhv.value &&
+			    (!flags.suggest && 
+			     hv.value == minval && 
+			     minval < currhv.value && 
 			     !(random() % 3)))
 			{
 				algo = hv.algo;
 				minval = hv.value;
 				minpos = j;
-				dbgprintf(player,"Value after exchange at pos %d with algo %d = %d\n",minpos,algo,minval);
+				dbgprintf(player,"Setting minpos: %d\n",minpos);
 			}
 			phand[j] = tmp;
 		}
@@ -114,28 +144,44 @@ void computerMove(int player)
 		// value inserting the card anywhere so get the next one.
 		if (minpos == -1)
 		{
-			if (pushed) playerPopSeen(player);
+			if (flags.suggest)
+			{
+				if (flags.user_next)
+					sugprintf("Get the next card.\n");
+					
+				else if (knock_player == NO_PLY)
+					sugprintf("Do nothing and end the move.\n");
+				else computerSuggestMeld(NO_ALGO);
+				return;
+			}
 			if (i == 1) 
 			{
 				// Had 2 goes, end of move.
-				pcolprintf(player," rejects card.\n");
+				pcolprintf(player," rejects the card.\n");
 				break;
 			}
 			if (decktop == max_decktop - 1)
 			{
-				pcolprintf(player," rejects card but can't draw any more.\n");
+				pcolprintf(player," rejects the card but can't draw any more.\n");
 				break;
 			}
-			pcolprintf(player," rejects card and gets next.\n");
+			pcolprintf(player," rejects the card and gets the next.\n");
 			++decktop;
 			continue;
 		}
 
 		// Exchange cards, do final melds if possible and finish move.
 		tmp = phand[minpos];
+		if (flags.suggest)
+		{
+			sugprintf(
+				"Exchange the deck card with %s at position ~FG%d.\n",
+				cardString(tmp),minpos);
+			return;
+		}
 		if (PRINT_INFO())
 		{
-			pcolprintf(player," exchanged at position %d:~RS %s replaces %s\n",
+			pcolprintf(player," exchanges at position %d:~RS %s replaces %s\n",
 				minpos,
 				cardString(nextcard),
 				cardString(tmp));
@@ -148,7 +194,7 @@ void computerMove(int player)
 		if (PRINT_INFO())
 		{
 			pcolprintf(player,"'s hand after exchange:\n");
-			// !i = don't print next card if we've just taken it
+			// !i = don't print deck card if we've just taken it
 			handPrint(phand,!i);
 		}
 		break;
@@ -169,6 +215,7 @@ void computerMove(int player)
 
 
 
+
 //////////////////////////////// MELDING //////////////////////////////////
 
 /*** Meld everything after we've knocked. We leave melding until now (unless
@@ -182,10 +229,10 @@ void computerKnockAndMeld(int player, t_handval hv)
 		hv.value,hv.algo,min_knock_val);
 
 	playerKnock(player);
-	handPrint(hands[player],false);
+	handPrint(ply[player].hand,false);
 	computerEndOfMoveMeld(player,hv.algo);
 
-	assert(handGetValue(hands[player]) == hv.value);
+	assert(handGetValue(ply[player].hand) == hv.value);
 }
 
 
@@ -194,16 +241,24 @@ void computerKnockAndMeld(int player, t_handval hv)
 void computerEndOfMoveMeld(int player, int algo)
 {
 	dbgprintf(player,"Melding with algo %d\n",algo);
-	t_card *hand = hands[player];
+	t_card *hand = ply[player].hand;
 
 	// Meld if we can
 	flags.show_meld = (PRINT_INFO() || knock_player != NO_PLY);
-	if (flags.show_meld) pcolprintf(player," attempts to meld...\n");
+	if (flags.show_meld)
+	{
+		if (!flags.self_play && knock_player == USER)
+		{
+			pcolprintf(player,"'s hand before meld:\n");
+			handPrint(hand,true);
+		}
+		pcolprintf(player," attempts to meld...\n");
+	}
 
 	flags.store_melds = 1;
 	computerMeld(player,hand,algo);
 	flags.store_melds = 0;
-	handShiftLeft(hands[player]);
+	handShiftLeft(ply[player].hand);
 
 	if (flags.show_meld)
 	{
@@ -214,7 +269,7 @@ void computerEndOfMoveMeld(int player, int algo)
 		}
 		else pcolprintf(player," cannot meld.\n");
 	}
-	flags.show_meld = false;
+	flags.show_meld = 0;
 }
 
 
@@ -302,6 +357,7 @@ void computerInvalidateCards(
 	int player, bool set, t_card *hand, int from, int to)
 {
 	assert(from < to);
+	struct st_player *pp = &ply[player]; // Makes code easier to read
 
 	if (flags.show_meld) colprintf("   ~FYMelding:~RS ");
 	flags.melded = 1;
@@ -313,9 +369,9 @@ void computerInvalidateCards(
 		if (flags.layoff && flags.store_melds)
 		{
 			if (set)
-				meldsets[player][meldsetscnt[player]++] = hand[i];
+				pp->meldsets[pp->meldsetscnt++] = hand[i];
 			else
-				meldruns[player][meldrunscnt[player]++] = hand[i];
+				pp->meldruns[pp->meldrunscnt++] = hand[i];
 		}
 		hand[i] = invalid_card;
 	}
@@ -325,7 +381,7 @@ void computerInvalidateCards(
 		if (flags.layoff)
 		{
 			dbgprintf(player,"Has %d stored melded cards.\n",
-				meldsetscnt[player] + meldrunscnt[player]);
+				pp->meldsetscnt + pp->meldrunscnt);
 		}
 	}
 }
@@ -337,7 +393,7 @@ void computerInvalidateCards(
      Algo:
      1) Sort for sets, remove them, sort for runs, remove, get value
      2) Sort for runs, remove them, sort for sets, remove, get value
-     3) Get min value of 1 & 2
+     Then get min value of 1 & 2.
 ***/
 t_handval computerGetMinValue(int player, t_card *hand, bool adjust_for_doubles)
 {
@@ -347,13 +403,8 @@ t_handval computerGetMinValue(int player, t_card *hand, bool adjust_for_doubles)
 		player,hand,ALGO_MELD_RUN_THEN_SET,adjust_for_doubles);
 
 	// Want lowest value
-	if (val1 < val2)
-	{
-		t_handval hv = { val1, ALGO_MELD_SET_THEN_RUN };
-		return hv;
-	}
-	t_handval hv = { val2, ALGO_MELD_RUN_THEN_SET };
-	return hv;
+	if (val1 <= val2) return (t_handval){ val1, ALGO_MELD_SET_THEN_RUN }; 
+	return (t_handval){ val2, ALGO_MELD_RUN_THEN_SET };
 }
 
 
@@ -437,11 +488,12 @@ float computerGetRunDoubleValue(int player, t_card prev, t_card card, float val)
 		if (++card.type > KING)
 			++cnt;
 		else
-			cnt = playerHasSeenCard(player,card);
+			cnt += playerHasSeenCard(player,card);
 
 		/* If we haven't seen other cards (cnt = 0) then best result, 
-		   seen 1 ok, seen 2 then useless so invert for pow(): 0 is 
-		   useless, 2 best */
+		   seen 1 = ok, seen 2 = useless so invert for pow() exponent
+		   because double_adjust_mult is 0 -> 1 so the higher the 
+		   exponent the lower the return value */
 		return val * pow(double_adjust_mult,2 - cnt);
 	}
 	if (card.type == prev.type + 2)
@@ -469,4 +521,25 @@ float computerGetSetDoubleValue(int player, t_card prev, t_card card, float val)
 
 	// Having seen 0 other cards is best, 1 is ok, 2 is useless.
 	return val * pow(double_adjust_mult,2 - (cnt - 2));
+}
+
+
+//////////////////////////////// MISCELLANIOUS /////////////////////////////////
+
+void computerSuggestMeld(int algo)
+{
+	switch(algo)
+	{
+	case NO_ALGO:
+		sugprintf("Meld where possible.\n");
+		break;
+	case ALGO_MELD_SET_THEN_RUN:
+		sugprintf("Meld sets then runs where possible then knock.\n");
+		break;
+	case ALGO_MELD_RUN_THEN_SET:
+		sugprintf("Meld runs then sets where possible then knock.\n");
+		break;
+	default:
+		assert(0);
+	}
 }

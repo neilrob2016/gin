@@ -34,7 +34,7 @@ void deckInit(void)
 void deckPrint(void)
 {
 	SPEECH_OFF();
-	colprintf("\n~BY~FKDeck:\n");
+	colprintf("\n~BB~FGDeck:\n\n");
 	for(int i=0;i < DECK_SIZE;++i)
 	{
 		if (i && !(i % 10)) putchar('\n');

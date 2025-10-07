@@ -15,9 +15,20 @@ void errprintf(const char *fmt, ...)
 	vasprintf(&text,fmt,args);
 
 	colprintf("\07~BR~FWERROR:~RS %s",text);
-#ifdef __APPLE__
-	sayprintf("error %s",text);
-#endif
+	va_end(args);
+	free(text);
+}
+
+
+
+void sugprintf(const char *fmt, ...)
+{
+	va_list args;
+	char *text;
+
+	va_start(args,fmt);
+	vasprintf(&text,fmt,args);
+	colprintf("~FYSuggestion:~RS %s",text);
 	va_end(args);
 	free(text);
 }
@@ -27,6 +38,7 @@ void errprintf(const char *fmt, ...)
 /*** Output string with foreground in player colours ***/
 void pcolprintf(int player, const char *fmt, ...)
 {
+	assert(player != NO_PLY);
 	va_list args;
 	char *text;
 
@@ -34,9 +46,7 @@ void pcolprintf(int player, const char *fmt, ...)
 	vasprintf(&text,fmt,args);
 
 	colprintf("~F%c%s%s",
-		player_col[player],
-		player_name[flags.self_play][player],
-		text);
+		player_col[player],player_name[flags.self_play][player],text);
 	va_end(args);
 	free(text);
 }
@@ -203,7 +213,7 @@ void colprintf(const char *fmt, ...)
 		{
 			if (spchpos)
 			{
-				char *name = cardGetName(c,spchtext[spchpos-1],&len);
+				char *name = cardGetNameFromChars(c,spchtext[spchpos-1],&len);
 				if (len)
 				{
 					spch_alloc += len + 1;

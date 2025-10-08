@@ -19,3 +19,7 @@ Initial version
 - Bug fix in computerGetRunDoubleValue() 
 - Bug fix in computerMove()
 - Loads of other code updates
+
+20251008
+========
+- Fixed minor error in usage for MacOS.

@@ -172,7 +172,7 @@ void parseCmdLine(int argc, char **argv)
 	       "       -t         : Don't prompt to continue after each self play game.\n"
 	       "       -v         : Show version then exit.\n"
 #ifdef __APPLE__
-	       "Note: -a, -o and -r imply -s.\n",
+	       "Note: -r, -o and -w imply -s.\n",
 		argv[0],
 		SPEECH_RATE,DOUBLE_ADJUST_MULT,MIN_KNOCK_VAL,PLAY_DELAY);
 #else

@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define VERSION "20251007"
+#define VERSION "20251008"
 
 enum en_suits
 {

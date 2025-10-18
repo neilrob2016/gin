@@ -20,6 +20,14 @@ Initial version
 - Bug fix in computerMove()
 - Loads of other code updates
 
+
 20251008
 ========
 - Fixed minor error in usage for MacOS.
+
+
+20251018
+========
+- Added user command 'B': Rollback to previous move
+- Added user command 'I' for MacOS: Toggle speech on/off. 
+- Minor code mods.

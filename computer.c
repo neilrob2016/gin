@@ -30,17 +30,22 @@ void computerMove(int player)
 {
 	t_card *phand = ply[player].hand;
 
+	// Get current hand value if player melded not adjusting for doubles
+	t_handval currhv = computerGetMinValue(player,phand,false); 
+	int currval = currhv.value;
+
 	if (flags.suggest)
 	{
+		assert(player == USER);
 		if (knock_player != NO_PLY)
 		{
-			computerSuggestMeld(NO_ALGO);
+			computerSuggestMeld(currhv.algo);
 			return;
 		}
 	}
 	else
 	{
-		// mainloop shouldn't call us again f we've already knocked
+		// mainloop shouldn't call us again if we've already knocked
 		assert(knock_player != player);
 		putchar('\n');
 		if (PRINT_INFO())
@@ -51,9 +56,6 @@ void computerMove(int player)
 		else pcolprintf(player,"'s move...\n");
 	}
 
-	// Get current hand value if we melded not adjusting for doubles
-	t_handval currhv = computerGetMinValue(player,phand,false); 
-	int currval = currhv.value;
 	if (flags.debug)
 	{
 		dbgprintf(player,"Current min hand value with algo %d: %d\n",
@@ -65,6 +67,7 @@ void computerMove(int player)
 	{
 		if (flags.suggest)
 		{
+			assert(player == USER);
 			computerSuggestMeld(currhv.algo);
 			return;
 		}
@@ -75,7 +78,11 @@ void computerMove(int player)
 	// If no more cards do final meld
 	if (decktop == max_decktop)
 	{
-		if (flags.suggest) computerSuggestMeld(NO_ALGO);
+		if (flags.suggest)
+		{
+			assert(player == USER);
+			computerSuggestMeld(currhv.algo);
+		}
 		else
 		{
 			pcolprintf(player," can't draw another card.\n");
@@ -151,7 +158,7 @@ void computerMove(int player)
 					
 				else if (knock_player == NO_PLY)
 					sugprintf("Do nothing and end the move.\n");
-				else computerSuggestMeld(NO_ALGO);
+				else computerSuggestMeld(currhv.algo);
 				return;
 			}
 			if (i == 1) 
@@ -175,7 +182,7 @@ void computerMove(int player)
 		if (flags.suggest)
 		{
 			sugprintf(
-				"Exchange the deck card with %s at position ~FG%d.\n",
+				"Exchange %s at position ~FY%d~RS.\n",
 				cardString(tmp),minpos);
 			return;
 		}
@@ -357,7 +364,7 @@ void computerInvalidateCards(
 	int player, bool set, t_card *hand, int from, int to)
 {
 	assert(from < to);
-	struct st_player *pp = &ply[player]; // Makes code easier to read
+	t_player *pp = &ply[player]; // Makes code easier to read
 
 	if (flags.show_meld) colprintf("   ~FYMelding:~RS ");
 	flags.melded = 1;
@@ -530,9 +537,6 @@ void computerSuggestMeld(int algo)
 {
 	switch(algo)
 	{
-	case NO_ALGO:
-		sugprintf("Meld where possible.\n");
-		break;
 	case ALGO_MELD_SET_THEN_RUN:
 		sugprintf("Meld sets then runs where possible then knock.\n");
 		break;

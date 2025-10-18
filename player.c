@@ -1,9 +1,10 @@
 #include "globals.h"
 
-void playersInit(void)
+void playerInit(void)
 {
 	knock_player = NO_PLY;
 	gin_player = NO_PLY;
+
 	// Can't just zero whole player structure because of points and games 
 	// won stats.
 	for(int i=0;i < NUM_PLAYERS;++i) 
@@ -145,4 +146,25 @@ void playerLayOff(int player)
 		handPrint(ply[player].hand,false);
 	}
 	else pcolprintf(player," couldn't lay off any cards.\n\n");
+}
+
+
+
+void playerPrintSeen(void)
+{
+	colprintf("\n~BM~FW*** Cards seen ***\n");
+	SPEECH_OFF();
+	for(int i=0;i < NUM_PLAYERS;++i)
+	{       
+		colprintf("\n~F%c%s:\n",
+			player_col[i],player_name[flags.self_play][i]);
+		for(int j=0;j < ply[i].seencnt;++j)
+		{
+			if (j && !(j % 10)) putchar('\n');
+			colprintf("%s ",cardString(ply[i].seencards[j]));
+		}       
+		putchar('\n');
+	}
+	putchar('\n');
+	SPEECH_ON();
 }

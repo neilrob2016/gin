@@ -10,7 +10,7 @@ void parseCmdLine(int argc, char **argv);
 void version(void);
 void init(void);
 void mainloop(void);
-void endOfGame(int game, int moves);
+void endOfGame(int game);
 void sighandler(int sig);
 
 int main(int argc, char **argv)
@@ -142,8 +142,8 @@ void parseCmdLine(int argc, char **argv)
 		version();
 		exit(0);
 	}
-	flags.speech_orig = flags.speech;
-	flags.self_play_orig = flags.self_play;
+	flags.speech_save = flags.speech;
+	flags.self_play_save = flags.self_play;
 	play_delay_usec = (int)ceil(play_delay * 1000000);
 	return;
 
@@ -158,7 +158,7 @@ void parseCmdLine(int argc, char **argv)
 	       "       -d <0-1>   : Double adjust multiplication value for when the computer\n"
 	       "                    calculates potential hand values. Default = %.2f\n"
 	       "       -k <0-100> : Mininum knock value. Default = %d\n"
-	       "       -y <secs>  : Self play delay between moves. Default = %.1f\n"
+	       "       -y <secs>  : Self play delay between move. Default = %.1f\n"
 	       "       -a         : Match will be won by the first person to win 10 games\n"
 	       "                    instead of 100 points.\n"
 	       "       -c         : No colour.\n"
@@ -217,7 +217,6 @@ void init(void)
 
 void mainloop(void)
 {
-	int moves;
 	int player;
 	int prev_decktop;
 	int first_player;
@@ -229,12 +228,13 @@ void mainloop(void)
 
 	for(int game=1;;++game)
 	{
+		stateInit();
 		deckInit();
 		if (PRINT_INFO()) deckPrint();
 
 		colprintf("\n~BM~FW---{ Game ~FG%d~FW }---\n\n",game);
 		handsDeal();
-		playersInit();
+		playerInit();
 
 		if (game == 1)
 		{
@@ -262,9 +262,9 @@ void mainloop(void)
 		flags.show_meld = 0;
 
 		// Loop until someone wins
-		for(moves=1;;++moves)
+		for(move=1;;++move)
 		{
-			colprintf("\n~BB~FWMove %d:\n",moves);
+			colprintf("\n~BB~FWMove %d:\n",move);
 			dbgprintf(NO_PLY,"decktop = %d, max_decktop = %d\n",
 				decktop,max_decktop);
 			assert(decktop <= max_decktop);
@@ -278,7 +278,7 @@ void mainloop(void)
 
 			// If neither user went for the next card then increment
 			// the decktop.
-			if (!(moves % 2))
+			if (!(move % 2))
 			{
  				if (decktop == prev_decktop) ++decktop;
 				prev_decktop = decktop;
@@ -302,7 +302,7 @@ void mainloop(void)
 			if (flags.self_play && play_delay_usec) 
 				usleep(play_delay_usec);
 		}
-		endOfGame(game,moves);
+		endOfGame(game);
 
 		// Alternate which user starts each game
 		self_play_start_player = !self_play_start_player;
@@ -314,7 +314,7 @@ void mainloop(void)
 			getchar();
 			// If user used 'p' command make sure we go back to
 			// user prompt for new game.
-			flags.self_play = flags.self_play_orig;
+			flags.self_play = flags.self_play_save;
 		}
 	}
 }
@@ -322,7 +322,7 @@ void mainloop(void)
 
 
 /*** Do layoffs, calculate points and show winner ***/
-void endOfGame(int game, int moves)
+void endOfGame(int game)
 {
 	char *pname[2];
 	char col[2];
@@ -365,8 +365,8 @@ void endOfGame(int game, int moves)
 		handPrint(ply[COMPUTER].hand,false);
 	}
 
-	colprintf("~BM~FW--@{ Game ~FG%d~FW complete in ~FY%d~FW moves }@--\n\n",
-		game,moves);
+	colprintf("~BM~FW--@{ Game ~FG%d~FW complete in ~FY%d~FW move }@--\n\n",
+		game,move);
 
 	colprintf("~BY~FM~ULPlayer    Hand value\n");
 	if (!flags.colour) puts("------    ----------");

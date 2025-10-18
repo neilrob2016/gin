@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define VERSION "20251008"
+#define VERSION "20251018"
 
 enum en_suits
 {
@@ -52,7 +52,6 @@ enum en_types
 
 enum en_algo
 {
-	NO_ALGO,
 	ALGO_MELD_SET_THEN_RUN,
 	ALGO_MELD_RUN_THEN_SET
 };
@@ -71,35 +70,23 @@ enum en_player
 
 #define DOUBLE_ADJUST_MULT 0.75
 
-#define DECK_SIZE  52
-#define HAND_SIZE  10
-#define GIN_ADD    25
-#define PLAY_DELAY 1.0
+#define DECK_SIZE     52
+#define HAND_SIZE     10
+#define GIN_ADD       25
+#define PLAY_DELAY    1.0
+#define MAX_ROLLBACK  DECK_SIZE
 
 #define SPEECH_RATE  "180"
 #define SPEECH_OFF() flags.speech = 0
-#define SPEECH_ON()  flags.speech = flags.speech_orig
+#define SPEECH_ON()  flags.speech = flags.speech_save
 
 typedef struct
-{
-	uint8_t suit;
-	uint8_t type;
-} t_card;
-
-typedef struct
-{
-	int value;
-	int algo;
-} t_handval;
-
-struct st_flags
 {
 	// Command line
 	unsigned colour          : 1;
 	unsigned speech          : 1;
 	unsigned wait_for_speech : 1;
 	unsigned self_play       : 1;
-	unsigned self_play_orig  : 1;
 	unsigned prompt          : 1;
 	unsigned layoff          : 1;
 	unsigned layoff_gin      : 1;
@@ -108,18 +95,36 @@ struct st_flags
 	unsigned version         : 1;
 
 	// Runtime
-	unsigned colour_save : 1;
-	unsigned speech_orig : 1;
-	unsigned end_of_game : 1;
-	unsigned show_meld   : 1;
-	unsigned melded      : 1;
-	unsigned meld_asap   : 1;
-	unsigned store_melds : 1;
-	unsigned user_next   : 1;
-	unsigned suggest     : 1;
-};
+	unsigned colour_save    : 1;
+	unsigned speech_save    : 1;
+	unsigned self_play_save : 1;
+	unsigned end_of_game    : 1;
+	unsigned show_meld      : 1;
+	unsigned melded         : 1;
+	unsigned meld_asap      : 1;
+	unsigned store_melds    : 1;
+	unsigned user_next      : 1;
+	unsigned suggest        : 1;
+	unsigned check_knock1   : 1;
+	unsigned check_knock2   : 1;
+} t_flags;
 
-struct st_player
+
+typedef struct
+{
+	uint8_t suit;
+	uint8_t type;
+} t_card;
+
+
+typedef struct
+{
+	int value;
+	int algo;
+} t_handval;
+
+
+typedef struct 
 {
 	t_card hand[HAND_SIZE];
 	t_card seencards[DECK_SIZE];
@@ -130,7 +135,22 @@ struct st_player
 	int seencnt;
 	int points;
 	int games;
-};
+} t_player;
+
+
+typedef struct
+{
+	// Have to store copy of the whole deck as it can be exchanged into
+	t_card deck[DECK_SIZE];
+	t_player ply[NUM_PLAYERS];
+	t_flags flags;
+	int move;
+	int decktop;
+	int max_decktop;
+	int knock_player;
+	int gin_player;
+} t_state;
+	
 
 // Globals
 #ifdef MAINFILE
@@ -152,17 +172,21 @@ extern int typeval[NUM_TYPES];
 extern const char *player_col;
 #endif
 
-EXTERN struct st_player ply[NUM_PLAYERS];
 EXTERN t_card deck[DECK_SIZE];
+EXTERN t_player ply[NUM_PLAYERS];
+EXTERN t_state state[MAX_ROLLBACK];
 EXTERN int decktop;
 EXTERN int max_decktop;
 EXTERN int knock_player;
 EXTERN int gin_player;
 EXTERN int play_delay_usec;
+EXTERN int move;
+EXTERN int state_start;
+EXTERN int state_next;
 EXTERN float double_adjust_mult;
 
 // Command line
-EXTERN struct st_flags flags;
+EXTERN t_flags flags;
 EXTERN int min_knock_val;
 EXTERN char *speech_rate;
 EXTERN char *voice;
@@ -190,13 +214,14 @@ char *cardGetName(t_card card);
 char *cardGetNameFromChars(char suit, char type, int *len);
 
 // player.c
-void playersInit(void);
+void playerInit(void);
 void playerGin(int player);
 void playerKnock(int player);
 void playerLayOff(int player);
 void playerAddSeen(int player, t_card card);
 int  playerHasSeenCard(int player, t_card card);
 int  playerHasSeenCardType(int player, int type);
+void playerPrintSeen(void);
 
 // user.c
 bool userFirst(void);
@@ -204,6 +229,11 @@ bool userMove(void);
 
 // computer.c
 void computerMove(int player);
+
+// state.c
+void stateInit(void);
+void stateStore(void);
+bool stateRestorePrevious(void);
 
 // printf.c
 void errprintf(const char *fmt, ...);

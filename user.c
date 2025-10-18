@@ -8,13 +8,14 @@ static char buff[BUFFSIZE+1];
 static int bufflen;
 
 int  userInput(void);
+void userRollBack(void);
+void userFlags(void);
 void userHelp(void);
 bool userExchange(void);
 bool userKnock(void);
 void userNextCard(void);
 void userMeld(void);
 int  userGetPosition(char c);
-void userPrintSeen(void);
 
 bool userFirst(void)
 {	
@@ -36,10 +37,11 @@ bool userFirst(void)
 /*** Returns true is a restart is requested ***/
 bool userMove(void)
 {
-	bool check_knock = true;
 	int cnt;
 
 	flags.user_next = 1;
+	flags.check_knock1 = 1;
+	flags.check_knock2 = 1;
 
 	if (knock_player == COMPUTER)
 		colprintf("\n~FR~LIThe computer has knocked. You must meld as many cards as you can.\n");
@@ -50,8 +52,19 @@ bool userMove(void)
 	// Store them in case we switch to self play mode with 'p' 
 	playerAddSeen(USER,deck[decktop]);
 
+	// Store for rollback
+	stateStore();
+
 	while(true)
 	{
+		if (flags.check_knock1 &&
+		    knock_player == NO_PLY &&
+		    handGetValue(ply[USER].hand) <= min_knock_val)
+		{
+			colprintf("~FY~LIYou can knock!\n\n");
+			flags.check_knock1 = 0;
+		}
+
 		SPEECH_OFF();
 		colprintf("~FTYour move (h for help):~RS ");
 		fflush(stdout);
@@ -75,6 +88,9 @@ bool userMove(void)
 			colprintf("\n~FYYour hand:\n");
 			handPrint(ply[USER].hand,true);
 			continue;
+		case 'B':
+			userRollBack();
+			continue;
 		case 'C':
 			flags.colour_save = !flags.colour;
 			flags.colour = 1;
@@ -83,11 +99,12 @@ bool userMove(void)
 			continue;
 		case 'D':
 			// Check to see if user can knock
-			if (check_knock && 
+			if (flags.check_knock2 && 
+			    knock_player == NO_PLY &&
 			    (cnt = handGetValue(ply[USER].hand)) <= min_knock_val)
 			{
 				colprintf("~BM~FWNote:~RS Your current hand value is ~FY~LI%d~RS, you can knock! Press 'D' again to ignore.\n",cnt);
-				check_knock = false;
+				flags.check_knock2 = false;
 				continue;
 			}
 			return false;
@@ -101,11 +118,7 @@ bool userMove(void)
 			}
 			continue;
 		case 'F':
-			colprintf("Laying off      : %s\n",ONOFF(flags.layoff));
-			colprintf("Gin after layoff: %s\n",ONOFF(flags.layoff_gin));
-			colprintf("Comp melds ASAP : %s\n",ONOFF(flags.meld_asap));
-			colprintf("Colour          : %s\n",ONOFF(flags.colour));
-			colprintf("Debug mode      : %s\n",ONOFF(flags.debug));
+			userFlags();
 			continue;
 		case 'G':
 			flags.debug = !flags.debug;
@@ -113,6 +126,12 @@ bool userMove(void)
 			continue;
 		case 'H':
 			userHelp();
+			continue;
+		case 'I':
+			flags.speech_save = !flags.speech;
+			flags.speech = 1;
+			colprintf("Speech: %s\n",ONOFF(flags.speech_save));
+			flags.speech = flags.speech_save;
 			continue;
 		case 'K':
 			if (userKnock()) return false;
@@ -180,14 +199,16 @@ bool userMove(void)
 			colprintf("\n\n~BM~FW***~LI RESTART~RS~BM~FW ***\n\n");
 			return true;
 		case 'Y':
-			// Only allow in debug mode otherwise its cheating
+			// Hidden command only allowed in debug mode because
+			// its cheating
 			if (flags.debug)
 			{
-				userPrintSeen();
+				playerPrintSeen();
 				continue;
 			}
 			break;
 		case 'Z':
+			// Hidden command
 			if (flags.debug)
 			{
 				deckPrint();
@@ -198,6 +219,34 @@ bool userMove(void)
 		errprintf("Unknown command. Type 'H' for help.\n");
 	}
 	return false;
+}
+
+
+
+void userRollBack(void)
+{
+	if (stateRestorePrevious())
+	{
+		colprintf("\n~BB~FWRolling back to move %d:\n",move);
+		handPrint(ply[USER].hand,true);
+	}
+	else errprintf("At rollback limit.\n");
+}
+
+
+
+void userFlags(void)
+{
+	SPEECH_OFF();
+	colprintf("Laying off            : %s\n",ONOFF(flags.layoff));
+	colprintf("Going Gin after layoff: %s\n",ONOFF(flags.layoff_gin));
+	colprintf("Computer melds ASAP   : %s\n",ONOFF(flags.meld_asap));
+	colprintf("Colour                : %s\n",ONOFF(flags.colour));
+#ifdef __APPLE__
+	colprintf("Speech                : %s\n",ONOFF(flags.speech));
+#endif
+	colprintf("Debug mode            : %s\n",ONOFF(flags.debug));
+	SPEECH_ON();
 }
 
 
@@ -213,7 +262,8 @@ void userHelp(void)
 	colprintf("   ~FTM<pos1><pos2><pos3>[<pos> * N]~RS : Meld the cards at the given positions.\n");
 	colprintf("\n~FMSimple commands:\n");
 	colprintf("   ~FTA~RS : Display hand.\n");
-	colprintf("   ~FTD~RS : You don't want to exchange any cards, hand back to the computer.\n");
+	colprintf("   ~FTB~RS : Roll the game back to the start of your previous move.\n");
+	colprintf("   ~FTD~RS : Your move is complete, hand back to the computer.\n");
 	colprintf("   ~FTH~RS : This help.\n");
 	colprintf("   ~FTK~RS : Knock.\n");
 	colprintf("   ~FTN~RS : Next card.\n");
@@ -229,6 +279,9 @@ void userHelp(void)
 	colprintf("   ~FTC~RS : Toggle colour.\n");
 	colprintf("   ~FTF~RS : Show togglable flags.\n");
 	colprintf("   ~FTG~RS : Toggle debug mode.\n");
+#ifdef __APPLE__
+	colprintf("   ~FTI~RS : Toggle speech.\n");
+#endif
 	colprintf("   ~FTL~RS : Toggle laying off.\n");
 	colprintf("   ~FTO~RS : Toggle Going Gin after laying off.\n");
 	colprintf("   ~FTW~RS : Toggle computer melding ASAP instead of waiting until it can knock.\n");
@@ -376,7 +429,7 @@ void userMeld(void)
 		return;
 	}
 
-	struct st_player *pu = &ply[USER]; // Makes code easier to read
+	t_player *pu = &ply[USER]; // Makes code easier to read
 	t_card melded[HAND_SIZE];
 	bool set;
 	int meldpos[HAND_SIZE];
@@ -458,19 +511,4 @@ int userGetPosition(char c)
 {
 	c -= '0';
 	return (c < 0 || c >= HAND_SIZE) ? -1 : (int)c;
-}
-
-
-
-void userPrintSeen(void)
-{
-	colprintf("\n~BB~FWCards you have seen:\n\n");
-	SPEECH_OFF();
-	for(int i=0;i < ply[USER].seencnt;++i)
-	{
-		if (i && !(i % 10)) putchar('\n');
-		colprintf("%s ",cardString(ply[USER].seencards[i]));
-	}
-	puts("\n");
-	SPEECH_ON();
 }

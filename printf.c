@@ -28,7 +28,7 @@ void sugprintf(const char *fmt, ...)
 
 	va_start(args,fmt);
 	vasprintf(&text,fmt,args);
-	colprintf("~FYSuggestion:~RS %s",text);
+	colprintf("~FGSuggestion:~RS %s",text);
 	va_end(args);
 	free(text);
 }

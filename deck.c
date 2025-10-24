@@ -38,8 +38,16 @@ void deckPrint(void)
 	for(int i=0;i < DECK_SIZE;++i)
 	{
 		if (i && !(i % 10)) putchar('\n');
-		colprintf("%s ",cardString(deck[i]));
+		if (i == decktop)
+		{
+			colprintf("~BK~FY>%s~BK~FY<~RS",
+				cardStringCreate(deck[i],'G'));
+		}
+		else if (i == decktop + 1)
+			colprintf("%s",cardString(deck[i]));
+		else
+			colprintf(" %s",cardString(deck[i]));
 	}
-	puts("\n");
+	colprintf("\n\n~BK~FY>~BG~FMXx~FY~BK<~RS = Decktop (%d)\n\n",decktop);
 	SPEECH_ON();
 }

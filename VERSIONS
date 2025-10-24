@@ -31,3 +31,11 @@ Initial version
 - Added user command 'B': Rollback to previous move
 - Added user command 'I' for MacOS: Toggle speech on/off. 
 - Minor code mods.
+
+
+20251024
+========
+- Can now put 1,2 or 3 after 'H' (help) user command to show just a particular
+  section in case the user is on a small screen.
+- Decktop card now shown in debug deck print.
+- Minor code updates.

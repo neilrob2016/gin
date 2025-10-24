@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define VERSION "20251018"
+#define VERSION "20251024"
 
 enum en_suits
 {
@@ -210,6 +210,7 @@ void handCopy(t_card *from, t_card *to);
 
 // card.c
 char *cardString(t_card card);
+char *cardStringCreate(t_card card, char bg);
 char *cardGetName(t_card card);
 char *cardGetNameFromChars(char suit, char type, int *len);
 
@@ -238,6 +239,7 @@ bool stateRestorePrevious(void);
 // printf.c
 void errprintf(const char *fmt, ...);
 void sugprintf(const char *fmt, ...);
+void usageprintf(const char *fmt, ...);
 void pcolprintf(int player, const char *fmt, ...);
 void dbgprintf(int player, const char *fmt, ...);
 void colprintf(const char *fmt, ...);

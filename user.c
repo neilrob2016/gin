@@ -21,7 +21,7 @@ bool userFirst(void)
 {	
 	while(true)
 	{
-		colprintf("\n~FTWould you like to go first (y/n)?:~RS ");
+		colprintf("\n~FTWould you like to go first (Y/N)?:~RS ");
 		fflush(stdout);
 		if (userInput() == 1)
 		{
@@ -66,7 +66,7 @@ bool userMove(void)
 		}
 
 		SPEECH_OFF();
-		colprintf("~FTYour move (h for help):~RS ");
+		colprintf("~FTYour move ('H' for help):~RS ");
 		fflush(stdout);
 		if (!userInput()) continue;
 		SPEECH_ON();
@@ -74,7 +74,7 @@ bool userMove(void)
 		char c = toupper(buff[0]);
 
 		// Only the E and M commands take arguments
-		if (bufflen > 1 && strchr("ADHIKNPQRSTVXYCFGLOW",c))
+		if (bufflen > 1 && strchr("ADIKNPQRSTVXYCFGLOW",c))
 		{
 			errprintf("The '%c' command takes no arguments.\n",c);
 			continue;
@@ -127,12 +127,14 @@ bool userMove(void)
 		case 'H':
 			userHelp();
 			continue;
+#ifdef __APPLE__
 		case 'I':
 			flags.speech_save = !flags.speech;
 			flags.speech = 1;
 			colprintf("Speech: %s\n",ONOFF(flags.speech_save));
 			flags.speech = flags.speech_save;
 			continue;
+#endif
 		case 'K':
 			if (userKnock()) return false;
 			continue;
@@ -253,46 +255,75 @@ void userFlags(void)
 
 void userHelp(void)
 {
+	int which;
+
+	// Allow the user to select which section they want to see in case
+	// they're on a small screen.
+	switch(bufflen)
+	{
+	case 1:
+		which = 0;
+		break;
+	case 2:
+		which = buff[1] - '0';
+		if (which < 0 || which > 3) goto USAGE;
+		break;
+	default:
+		goto USAGE;
+	}
 	SPEECH_OFF();
-	colprintf("\n~FGArgument commands:\n");
-	colprintf("   ~FTE<pos>~RS                         : Exchange the card at this position for the\n");
-	puts("                                    deck card and then its the computers turn.");
-	colprintf("   ~FTE<pos1><pos2>~RS                  : Exchange cards at these positions to arrange\n");
-	puts("                                    your hand.");
-	colprintf("   ~FTM<pos1><pos2><pos3>[<pos> * N]~RS : Meld the cards at the given positions.\n");
-	colprintf("\n~FMSimple commands:\n");
-	colprintf("   ~FTA~RS : Display hand.\n");
-	colprintf("   ~FTB~RS : Roll the game back to the start of your previous move.\n");
-	colprintf("   ~FTD~RS : Your move is complete, hand back to the computer.\n");
-	colprintf("   ~FTH~RS : This help.\n");
-	colprintf("   ~FTK~RS : Knock.\n");
-	colprintf("   ~FTN~RS : Next card.\n");
-	colprintf("   ~FTP~RS : Switch to self play mode.\n");
-	colprintf("   ~FTQ~RS : Quit.\n");
-	colprintf("   ~FTR~RS : Sort hand into runs.\n");
-	colprintf("   ~FTS~RS : Sort hand into sets.\n");
-	colprintf("   ~FTT~RS : Tidy up hand by shifting left to remove any gaps after melding.\n");
-	colprintf("   ~FTU~RS : The computer will suggest a move for you.\n");
-	colprintf("   ~FTV~RS : Print version info.\n");
-	colprintf("   ~FTX~RS : Clear scores and restart match.\n");
-	colprintf("\n~FYFlag commands:\n");
-	colprintf("   ~FTC~RS : Toggle colour.\n");
-	colprintf("   ~FTF~RS : Show togglable flags.\n");
-	colprintf("   ~FTG~RS : Toggle debug mode.\n");
+	if (which < 2)
+	{
+		colprintf("\n~FGArgument commands:\n");
+		colprintf("   ~FTE~FY<pos>~RS                         : Exchange the card at this position for the\n");
+		puts("                                    deck card and then its the computers turn.");
+		colprintf("   ~FTE~FY<pos1><pos2>~RS                  : Exchange cards at these positions to arrange\n");
+		puts("                                    your hand.");
+		colprintf("   ~FTM~FY<pos1><pos2><pos3>[<pos> * N]~RS : Meld the cards at the given positions.\n");
+	}
+	if (!which || which == 2)
+	{
+		colprintf("\n~FMSimple commands:\n");
+		colprintf("   ~FTA~RS : Display hand.\n");
+		colprintf("   ~FTB~RS : Roll the game back to the start of your previous move.\n");
+		colprintf("   ~FTD~RS : Your move is complete, hand back to the computer.\n");
+		colprintf("   ~FTH~RS : This help.\n");
+		colprintf("   ~FTK~RS : Knock.\n");
+		colprintf("   ~FTN~RS : Next card.\n");
+		colprintf("   ~FTP~RS : Switch to self play mode.\n");
+		colprintf("   ~FTQ~RS : Quit.\n");
+		colprintf("   ~FTR~RS : Sort hand into runs.\n");
+		colprintf("   ~FTS~RS : Sort hand into sets.\n");
+		colprintf("   ~FTT~RS : Tidy up hand by shifting left to remove any gaps after melding.\n");
+		colprintf("   ~FTU~RS : The computer will suggest a move for you.\n");
+		colprintf("   ~FTV~RS : Print version info.\n");
+		colprintf("   ~FTX~RS : Clear scores and restart match.\n");
+	}
+	if (!which || which == 3)
+	{
+		colprintf("\n~FYFlag commands:\n");
+		colprintf("   ~FTC~RS : Toggle colour.\n");
+		colprintf("   ~FTF~RS : Show togglable flags.\n");
+		colprintf("   ~FTG~RS : Toggle debug mode.\n");
 #ifdef __APPLE__
-	colprintf("   ~FTI~RS : Toggle speech.\n");
+		colprintf("   ~FTI~RS : Toggle speech.\n");
 #endif
-	colprintf("   ~FTL~RS : Toggle laying off.\n");
-	colprintf("   ~FTO~RS : Toggle Going Gin after laying off.\n");
-	colprintf("   ~FTW~RS : Toggle computer melding ASAP instead of waiting until it can knock.\n");
+		colprintf("   ~FTL~RS : Toggle laying off.\n");
+		colprintf("   ~FTO~RS : Toggle Going Gin after laying off.\n");
+		colprintf("   ~FTW~RS : Toggle computer melding ASAP instead of waiting until it can knock.\n");
+	}
 	if (flags.debug)
 	{
 		colprintf("\n~FRDebug commands:\n");
 		colprintf("   ~FTY~RS : Print seen cards.\n");
 		colprintf("   ~FTZ~RS : Print deck.\n");
 	}
-	putchar('\n');
+	colprintf("\n~BM~FWNote:~RS You can put 1,2 or 3 after 'H' to show particular sections of the help in\n      case you are on a small screen/terminal.\n\n");
 	SPEECH_ON();
+	return;
+
+	USAGE:
+	usageprintf("H[0/1/2/3]\n");
 }
 
 
@@ -333,7 +364,7 @@ bool userExchange(void)
 	case 3:
 		break;
 	default:
-		puts("Usage: E<pos1>[<pos2]>");
+		usageprintf("E<pos1>[<pos2]>\n");
 		return false;
 	}
 	int pos1 = userGetPosition(buff[1]);
@@ -420,7 +451,7 @@ void userMeld(void)
 {
 	if (bufflen < 4)
 	{
-		puts("Usage: M<pos1><pos2><pos3>[<pos> * N]");
+		colprintf("M<pos1><pos2><pos3>[<pos> * N]\n");
 		return;
 	}
 	if (bufflen > HAND_SIZE + 1)

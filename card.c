@@ -21,11 +21,18 @@ static char *typename[NUM_TYPES] =
 
 char *cardString(t_card card)
 {
+	return cardStringCreate(card,'W');
+}
+
+
+
+char *cardStringCreate(t_card card, char bg)
+{
 	// Have array of 2 so we can call this twice inside a single printf
 	static char cstr[2][13];
 	static int index = 0;
-	snprintf(cstr[index],12,"~BW~F%c%c%c~RS",
-		SUITCOL[card.suit],TYPESTR[card.type],SUITSTR[card.suit]);
+	snprintf(cstr[index],12,"~B%c~F%c%c%c~RS",
+		bg,SUITCOL[card.suit],TYPESTR[card.type],SUITSTR[card.suit]);
 	index = !index;
 	return cstr[!index];
 }

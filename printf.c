@@ -13,7 +13,6 @@ void errprintf(const char *fmt, ...)
 
 	va_start(args,fmt);
 	vasprintf(&text,fmt,args);
-
 	colprintf("\07~BR~FWERROR:~RS %s",text);
 	va_end(args);
 	free(text);
@@ -29,6 +28,20 @@ void sugprintf(const char *fmt, ...)
 	va_start(args,fmt);
 	vasprintf(&text,fmt,args);
 	colprintf("~FGSuggestion:~RS %s",text);
+	va_end(args);
+	free(text);
+}
+
+
+
+void usageprintf(const char *fmt, ...)
+{
+	va_list args;
+	char *text;
+
+	va_start(args,fmt);
+	vasprintf(&text,fmt,args);
+	colprintf("~FYUsage:~RS %s",text);
 	va_end(args);
 	free(text);
 }

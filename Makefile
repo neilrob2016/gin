@@ -1,7 +1,7 @@
 ARGS=-std=c99 -g -Wall -Wextra -pedantic 
 #ARGS=-std=c99 -g -Wall -Wextra -pedantic -DNDEBUG
 #ARGS=-std=c99 -g -Wall -Wextra -pedantic -D__APPLE__
-#ARGS=-std=c99 -g -Wall -pedantic
+ARGS=-std=c99 -g -Wall -pedantic
 OBJS=main.o deck.o hand.o card.o player.o user.o computer.o state.o printf.o
 BIN=gin
 DEP=globals.h Makefile
